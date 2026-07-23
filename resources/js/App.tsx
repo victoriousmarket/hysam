@@ -84,19 +84,12 @@ export default function App() {
   const checkDbStatus = async () => {
     setDbStatus(prev => ({ ...prev, checking: true }));
     try {
-      const res = await fetch('/api/external-db/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
-      });
-      const data = await res.json();
+      const res = await fetch('/api/me');
+      const isConnected = res.ok;
       
-      const wasConnected = dbStatus.connected;
-      const isConnected = !!data.success;
-
       setDbStatus({
         connected: isConnected,
-        isGlobal: !!data.isGlobal,
+        isGlobal: true,
         synced: !storage.isSyncPending(),
         checking: false,
         lastSync: new Date().toLocaleTimeString()

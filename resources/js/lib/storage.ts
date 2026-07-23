@@ -313,7 +313,30 @@ export const storage = {
     try {
       const headers = await getAuthHeaders();
       
-      // 1. Pull first to merge potential changes from other clients
+      // 1. Build current local data payload to push
+      const pushData = {
+        users: storage.getUsers(),
+        products: storage.getProducts(),
+        sales: storage.getSales(),
+        payments: storage.getPayments(),
+        logs: storage.getLogs(),
+        activities: storage.getActivities(),
+        returns: storage.getReturns(),
+        settings: storage.getSettings()
+      };
+
+      // 2. Push local changes first so the server has the latest client updates
+      const pushRes = await fetch('/api/data', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(pushData)
+      });
+
+      if (!pushRes.ok) {
+        throw new Error(`Push sync failed with status code ${pushRes.status}`);
+      }
+
+      // 3. Pull fresh data from server (which now includes our updates)
       const pullRes = await fetch('/api/data', { headers });
       if (pullRes.ok) {
         const serverData = await pullRes.json();
@@ -363,58 +386,9 @@ export const storage = {
           localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(serverData.settings));
         }
         notifyDataUpdated();
-      }
 
-      // 2. Push merged data back up
-      const pushData = {
-        users: storage.getUsers(),
-        products: storage.getProducts(),
-        sales: storage.getSales(),
-        payments: storage.getPayments(),
-        logs: storage.getLogs(),
-        activities: storage.getActivities(),
-        returns: storage.getReturns(),
-        settings: storage.getSettings()
-      };
-
-      const res = await fetch('/api/data', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(pushData)
-      });
-
-      if (!res.ok) {
-        throw new Error(`Sync failed with status code ${res.status}`);
-      }
-
-      // 3. Post-sync verification: query fresh snapshot from database to compare table record counts
-      try {
-        const verifyRes = await fetch('/api/data', { headers });
-        if (verifyRes.ok) {
-          const freshData = await verifyRes.json();
-          storage.verifyDataCounts(freshData);
-        }
-      } catch (verifErr) {
-        console.warn('Post-sync verification check error:', verifErr);
-      }
-
-      // Optional background External DB auto-sync
-      const autosync = localStorage.getItem('hysam_external_db_autosync');
-      const savedConfig = localStorage.getItem('hysam_external_db_config');
-      if (autosync !== 'false' && savedConfig) {
-        try {
-          const config = JSON.parse(savedConfig);
-          const extRes = await fetch('/api/external-db/push', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ config, data: pushData })
-          });
-          if (!extRes.ok) {
-            console.warn('External DB auto-push returned error');
-          }
-        } catch (err) {
-          console.warn('Background External DB sync failed:', err);
-        }
+        // Perform verification
+        storage.verifyDataCounts(serverData);
       }
 
       storage.setSyncPending(false);
