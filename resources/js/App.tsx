@@ -98,8 +98,7 @@ export default function App() {
       // If we just connected or user explicitly refreshed, trigger a sync to ensure data is fresh
       if (isConnected) {
         setIsSyncing(true);
-        await storage.init(); // This will pull and merge
-        await storage.sync(); // This will push local changes
+        await storage.sync(); // This will push local changes, then pull server updates
         setIsSyncing(false);
         setDbStatus(prev => ({ ...prev, synced: !storage.isSyncPending() }));
       }
