@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\User;
 use App\Models\Product;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
@@ -13,13 +14,13 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Seed Admin User
+        // 1. Seed Admin User with secure hashed password
         User::updateOrCreate(
             ['id' => 'admin-user-1'],
             [
                 'name' => 'Admin User',
                 'email' => 'admin@hysam.com',
-                'password' => 'password123',
+                'password' => Hash::make('password123'),
                 'role' => 'admin',
                 'disabled' => false,
                 'permissions' => [
@@ -33,13 +34,13 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        // 2. Seed Staff User
+        // 2. Seed Staff User with secure hashed password
         User::updateOrCreate(
             ['id' => 'staff-user-1'],
             [
                 'name' => 'Staff User',
                 'email' => 'staff@hysam.com',
-                'password' => 'password123',
+                'password' => Hash::make('password123'),
                 'role' => 'staff',
                 'disabled' => false,
                 'permissions' => [

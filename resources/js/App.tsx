@@ -39,8 +39,6 @@ import {
 import { storage } from './lib/storage';
 import { User, UserRole, SyncVerificationResult } from './types';
 import { canAccessModule, getRoleConfig } from './lib/rbac';
-import { onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut } from 'firebase/auth';
-import { auth, googleAuthProvider } from './lib/firebase';
 
 // Components
 import Dashboard from './components/Dashboard';
@@ -261,67 +259,39 @@ export default function App() {
   }, [user, activeTab]);
 
   useEffect(() => {
-    // 1. First trigger storage local initialization
+    // 1. Initial cached auth check for immediate UI rendering
     storage.init().then(() => {
       const cached = storage.getAuth();
       if (cached) {
         setUser(cached);
       }
-    });
-
-    // 2. Setup Firebase auth state subscription
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        checkDbStatus();
-        const allUsers = storage.getUsers();
-        const existingUser = allUsers.find(u => u.email.toLowerCase() === firebaseUser.email?.toLowerCase());
-
-        if (existingUser) {
-          if (existingUser.disabled) {
-            console.warn('User account disabled by administrator.');
-            await firebaseSignOut(auth);
-            storage.setAuth(null);
-            setUser(null);
-            setLoading(false);
-            return;
+      
+      // 2. Query active Laravel session to verify authenticity
+      fetch('/api/me')
+        .then(res => {
+          if (res.ok) {
+            return res.json();
+          } else {
+            throw new Error('Unauthorized');
           }
-          storage.setAuth(existingUser);
-          setUser(existingUser);
-        } else {
-          // New Google Sign In default assignment logic
-          const isFirstUser = allUsers.length === 0;
-          const newUserRole: UserRole = isFirstUser ? 'admin' : 'sales';
-
-          const loggedInUser: User = {
-            id: firebaseUser.uid,
-            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-            email: firebaseUser.email || '',
-            role: newUserRole,
-            permissions: newUserRole === 'admin' 
-              ? { create: true, edit: true, delete: true, stockIn: true, stockOut: true } 
-              : { create: true, edit: false, delete: false, stockIn: false, stockOut: false },
-            createdAt: new Date().toISOString()
-          };
-
-          const updatedUsers = [...allUsers, loggedInUser];
-          storage.saveUsers(updatedUsers);
-          storage.setAuth(loggedInUser);
-          setUser(loggedInUser);
-        }
-        
-        await storage.init();
-      } else {
-        const cached = storage.getAuth();
-        const isDemo = cached && (cached.id === 'demo-admin-id' || cached.id === 'demo-sales-id' || cached.id === 'demo-inventory-id' || cached.id === 'demo-staff-id');
-        if (!isDemo) {
+        })
+        .then(serverUser => {
+          if (serverUser.disabled) {
+            throw new Error('Account disabled');
+          }
+          storage.setAuth(serverUser);
+          setUser(serverUser);
+          checkDbStatus();
+        })
+        .catch((err) => {
+          console.warn('Session verification failed:', err.message);
           storage.setAuth(null);
           setUser(null);
-        }
-      }
-      setLoading(false);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
     });
-
-    return () => unsubscribe();
   }, []);
 
   // Poll DB status every 5 minutes
@@ -332,9 +302,15 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
-      await firebaseSignOut(auth);
+      await fetch('/api/logout', { 
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
     } catch (error) {
-      console.error('Firebase logout failed:', error);
+      console.error('API logout failed:', error);
     }
     storage.setAuth(null);
     setUser(null);

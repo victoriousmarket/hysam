@@ -15,14 +15,11 @@ import {
   Eye, 
   EyeOff, 
   ArrowRight, 
-  UserCheck, 
   AlertCircle,
   CheckCircle2
 } from 'lucide-react';
-import { User, UserRole } from '../types';
+import { User } from '../types';
 import { storage } from '../lib/storage';
-import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
-import { auth, googleAuthProvider } from '../lib/firebase';
 
 interface LoginProps {
   onLoginSuccess: (user: User) => void;
@@ -58,128 +55,33 @@ export default function Login({ onLoginSuccess, settings }: LoginProps) {
     setLoading(true);
 
     try {
-      // 1. Check local storage / DB users first
-      const allUsers = storage.getUsers();
-      const existingUser = allUsers.find(u => u.email.trim().toLowerCase() === cleanEmail);
-
-      if (existingUser && existingUser.disabled) {
-        setError('Your account has been disabled by the administrator. Please contact support.');
-        setLoading(false);
-        return;
-      }
-
-      // Try Firebase Auth if configured
-      let firebaseUser = null;
-      try {
-        const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
-        firebaseUser = cred.user;
-      } catch (fbErr: any) {
-        console.warn('Firebase email login attempt failed/skipped:', fbErr?.message);
-      }
-
-      if (existingUser) {
-        // Verify local password if present or allow if match
-        if (existingUser.password && existingUser.password !== password && !firebaseUser) {
-          setError('Incorrect password. Please verify your password and try again.');
-          setLoading(false);
-          return;
-        }
-
-        // Successfully authenticated existing user
-        storage.setAuth(existingUser);
-        await storage.init();
-        onLoginSuccess(existingUser);
-        return;
-      }
-
-      // If user came via Firebase but not in local DB
-      if (firebaseUser) {
-        const isFirstUser = allUsers.length === 0;
-        const newUserRole: UserRole = isFirstUser ? 'admin' : 'sales';
-        const newDbUser: User = {
-          id: firebaseUser.uid,
-          name: firebaseUser.displayName || cleanEmail.split('@')[0],
+      // Perform secure Native Authentication call to Laravel backend
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
           email: cleanEmail,
-          password: password,
-          role: newUserRole,
-          permissions: newUserRole === 'admin'
-            ? { create: true, edit: true, delete: true, stockIn: true, stockOut: true }
-            : { create: true, edit: false, delete: false, stockIn: false, stockOut: false },
-          createdAt: new Date().toISOString()
-        };
+          password: password
+        })
+      });
 
-        const updated = [...allUsers, newDbUser];
-        storage.saveUsers(updated);
-        storage.setAuth(newDbUser);
-        await storage.init();
-        onLoginSuccess(newDbUser);
-        return;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to authenticate. Please try again.');
       }
 
-      // User not found anywhere
-      setError('No registered account found with this email. Please contact your system administrator to obtain access.');
+      // Login success: save credentials in local cache storage and trigger init sync
+      storage.setAuth(data);
+      await storage.init();
+      onLoginSuccess(data);
+
     } catch (err: any) {
       console.error('Sign in error:', err);
-      setError(err?.message || 'Failed to sign in. Please check your credentials.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    resetMessages();
-    setLoading(true);
-    try {
-      const res = await signInWithPopup(auth, googleAuthProvider);
-      const googleUser = res.user;
-      if (!googleUser || !googleUser.email) {
-        throw new Error('Google sign in did not return a valid email.');
-      }
-
-      const cleanEmail = googleUser.email.trim().toLowerCase();
-      const allUsers = storage.getUsers();
-      const existingUser = allUsers.find(u => u.email.trim().toLowerCase() === cleanEmail);
-
-      if (existingUser) {
-        if (existingUser.disabled) {
-          setError('Your account has been disabled by the administrator.');
-          setLoading(false);
-          return;
-        }
-        storage.setAuth(existingUser);
-        await storage.init();
-        onLoginSuccess(existingUser);
-        return;
-      }
-
-      // Create new user for Google login
-      const isFirstUser = allUsers.length === 0;
-      const newUserRole: UserRole = isFirstUser ? 'admin' : 'sales';
-      const newGoogleUser: User = {
-        id: googleUser.uid,
-        name: googleUser.displayName || cleanEmail.split('@')[0],
-        email: cleanEmail,
-        role: newUserRole,
-        permissions: newUserRole === 'admin'
-          ? { create: true, edit: true, delete: true, stockIn: true, stockOut: true }
-          : { create: true, edit: false, delete: false, stockIn: false, stockOut: false },
-        createdAt: new Date().toISOString()
-      };
-
-      storage.saveUsers([...allUsers, newGoogleUser]);
-      storage.setAuth(newGoogleUser);
-      await storage.init();
-      onLoginSuccess(newGoogleUser);
-    } catch (err: any) {
-      if (err?.code === 'auth/popup-closed-by-user') {
-        console.log('Google login popup closed by user.');
-        // User intentionally closed the popup, no action needed
-      } else if (err?.code === 'auth/cancelled-popup-request' || err?.code === 'auth/popup-blocked') {
-        setError('Google login popup was closed or blocked. Please enter your email and password above.');
-      } else {
-        console.error('Google login error:', err);
-        setError('Google login failed: ' + (err?.message || 'Please use email and password sign in.'));
-      }
+      setError(err?.message || 'Failed to sign in. Please verify your credentials.');
     } finally {
       setLoading(false);
     }
@@ -239,8 +141,8 @@ export default function Login({ onLoginSuccess, settings }: LoginProps) {
                   <Shield size={16} />
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-white">Single-Email Verification</div>
-                  <p className="text-[11px] text-slate-300 leading-tight mt-0.5">Unique user identity linked securely to your account email.</p>
+                  <div className="text-xs font-bold text-white">Secure Native Sessions</div>
+                  <p className="text-[11px] text-slate-300 leading-tight mt-0.5">State-of-the-art native browser authentication with security hashes.</p>
                 </div>
               </div>
             </div>
@@ -343,29 +245,8 @@ export default function Login({ onLoginSuccess, settings }: LoginProps) {
               )}
             </button>
           </form>
-
-          {/* Divider */}
-          <div className="flex items-center my-5">
-            <div className="flex-1 border-t border-slate-200" />
-            <span className="px-3 text-[10px] text-slate-400 font-bold uppercase tracking-wider bg-white">
-              Alternative Options
-            </span>
-            <div className="flex-1 border-t border-slate-200" />
-          </div>
-
-          {/* Social / Google Sign In */}
-          <button
-            type="button"
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="w-full py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <UserCheck size={16} className="text-indigo-600" />
-            Sign In with Google SSO
-          </button>
         </div>
       </motion.div>
     </div>
   );
 }
-

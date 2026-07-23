@@ -1,10 +1,4 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import { Product, Sale, Payment, User, InventoryLog, SalesReturn, Activity, SyncVerificationResult, TableVerification } from '../types';
-import { auth } from './firebase';
 
 const STORAGE_KEYS = {
   USERS: 'hysam_users',
@@ -21,15 +15,6 @@ const STORAGE_KEYS = {
 
 const getAuthHeaders = async () => {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  try {
-    const currentUser = auth.currentUser;
-    if (currentUser) {
-      const token = await currentUser.getIdToken();
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-  } catch (err) {
-    console.error('Failed to get Firebase Auth Token:', err);
-  }
 
   try {
     const dbConfig = localStorage.getItem('hysam_external_db_config');
