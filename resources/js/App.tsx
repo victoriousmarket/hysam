@@ -653,22 +653,7 @@ export default function App() {
 
           <div className="flex items-center gap-2 md:gap-4">
             {/* DB Status Indicator */}
-            <div className="flex items-center bg-white border border-slate-200 rounded-full px-3 py-1.5 shadow-sm gap-3">
-              {/* Connection Status */}
-              <div className="flex items-center gap-1.5">
-                <div className={`w-2 h-2 rounded-full ${dbStatus.connected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
-                <span className="text-[10px] font-bold uppercase tracking-tight text-slate-600">
-                  {dbStatus.connected ? 'Connected' : 'Not Connected'}
-                </span>
-                {dbStatus.isGlobal && (
-                  <span title="Central Database Active">
-                    <Globe size={12} className="text-indigo-500" />
-                  </span>
-                )}
-              </div>
-              
-              <div className="w-px h-3 bg-slate-200" />
-
+            <div className="flex items-center bg-white border border-slate-200 rounded-full px-3 py-1.5 shadow-sm gap-2">
               {/* Sync Status */}
               <div className="flex items-center gap-1.5" title={dbStatus.lastSync ? `Last synced: ${dbStatus.lastSync}` : 'Never synced'}>
                 {isSyncing ? (
@@ -694,7 +679,7 @@ export default function App() {
                 <button 
                   onClick={checkDbStatus}
                   className="p-1 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600 cursor-pointer"
-                  title="Refresh connection status"
+                  title="Sync with central database"
                 >
                   <RefreshCw size={10} className={dbStatus.checking ? 'animate-spin' : ''} />
                 </button>
