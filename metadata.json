@@ -1,6 +1,0 @@
-{
-  "name": "HYSAM Ventures Management",
-  "description": "Comprehensive business management suite for HYSAM VENTURES featuring role-based access, inventory tracking, sales management, installment payments, and analytics.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
