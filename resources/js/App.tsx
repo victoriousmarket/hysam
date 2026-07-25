@@ -50,6 +50,7 @@ import ActivityLog from './components/ActivityLog';
 import Users from './components/Users';
 import Settings from './components/Settings';
 import Login from './components/Login';
+import CalculatorDropdown from './components/CalculatorDropdown';
 
 type Tab = 'dashboard' | 'inventory' | 'sales' | 'payments' | 'deliveries' | 'activities' | 'users' | 'settings';
 
@@ -685,6 +686,9 @@ export default function App() {
                 </button>
               )}
             </div>
+
+            {/* Interactive Calculator dropdown */}
+            <CalculatorDropdown />
 
             {/* Sync Verification Status Pill */}
             {verificationResult && (
