@@ -82,6 +82,15 @@ export default function App() {
     checking: true
   });
 
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const checkDbStatus = async () => {
     setDbStatus(prev => ({ ...prev, checking: true }));
     try {
@@ -337,6 +346,20 @@ export default function App() {
     { id: 'stock-out', label: 'Stock Out', icon: ArrowDownLeft, color: 'text-rose-400' },
     { id: 'movement-logs', label: 'Movement History', icon: Clock, color: 'text-purple-400' },
   ] as const;
+
+  const formattedDate = currentTime.toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+
+  const formattedTime = currentTime.toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
 
   const roleConfig = getRoleConfig(user.role);
 
@@ -650,6 +673,12 @@ export default function App() {
             <h1 className="text-sm font-bold text-slate-800 hidden md:block">
               {navItems.find(i => i.id === activeTab)?.label || 'Dashboard'}
             </h1>
+            <div className="hidden sm:flex items-center gap-2 text-xs font-semibold text-slate-400 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-full select-none shadow-2xs">
+              <Clock size={12} className="text-primary-theme shrink-0 animate-pulse" />
+              <span>{formattedDate}</span>
+              <span className="text-slate-300 font-normal">|</span>
+              <span className="text-slate-800 font-bold font-mono text-[11px]">{formattedTime}</span>
+            </div>
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
